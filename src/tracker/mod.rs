@@ -43,9 +43,3 @@ impl<'a> Announce for HttpTracker<'a> {
         response.into()
     }
 }
-
-impl<'a> Announce for UdpTracker<'a> {
-    async fn announce(self, request: &TrackerRequest) -> anyhow::Result<TrackerResponse> {
-        todo!()
-    }
-}

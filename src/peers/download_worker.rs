@@ -1,3 +1,4 @@
+use super::PeerAddr;
 use super::PeerAlerts;
 use futures::StreamExt;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -6,7 +7,6 @@ use tokio::sync::mpsc;
 
 use crate::prelude::*;
 use crate::torrent::{InfoHash, PeerId};
-use std::net::SocketAddrV4;
 
 use super::descriptor::WorkerStateDescriptor;
 use super::worker_fsm::WorkerState;
@@ -15,14 +15,14 @@ use crate::peer_protocol::codec::{self, PeerMessage};
 use crate::peer_protocol::handshake::PeerHandshake;
 
 #[derive(Debug, Clone)]
-pub struct PeerAddr {
-    peer_addr: SocketAddrV4,
+pub struct PeerConnector {
+    peer_addr: PeerAddr,
 }
 
 /// interface type between PeerAddr and PeerDownloadWorker
 #[derive(Debug)]
 pub struct PeerDownloaderConnection {
-    peer_addr: SocketAddrV4,
+    peer_addr: PeerAddr,
     peer_id: PeerId,
     stream: TcpStream,
 }
@@ -33,8 +33,8 @@ pub struct PeerDownloadWorker {
     descriptor: WorkerStateDescriptor,
 }
 
-impl PeerAddr {
-    pub fn new(peer_addr: SocketAddrV4) -> Self {
+impl PeerConnector {
+    pub fn new(peer_addr: PeerAddr) -> Self {
         Self { peer_addr }
     }
 

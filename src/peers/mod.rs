@@ -8,6 +8,7 @@ mod worker_fsm;
 pub use comms::*;
 
 pub type PieceIndex = usize;
+pub type PeerAddr = std::net::SocketAddrV4;
 pub type PieceLength = u32;
 type BlockLength = u32;
 type BlockOffset = u32;

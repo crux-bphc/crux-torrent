@@ -1,5 +1,5 @@
+use crate::peers::PeerAddr;
 use serde::Deserialize;
-use std::net::SocketAddrV4;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct TrackerResponse {
@@ -8,7 +8,7 @@ pub struct TrackerResponse {
 
     #[serde(rename = "peers")]
     #[serde(deserialize_with = "parsing::deserialize_socket_addrs")]
-    pub peer_addreses: Vec<SocketAddrV4>,
+    pub peer_addreses: Vec<PeerAddr>,
 }
 
 // this struct is seperate so that it  can be deserialized properly and can be converted into a Result whose Ok variant gives the successful TrackerResponse.
