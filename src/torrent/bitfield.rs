@@ -10,7 +10,7 @@ pub type Bitslice = bv::BitSlice<u8, Msb0>;
 mod tests {
     use super::*;
 
-    #[test]
+    #[test] // this isn't really needed it's just sort of a sanity check
     fn check_bitfield_indexing() {
         // supposed to mock the vector from the stream;
         let stream_buf = vec![0u8, 1, 0, 1];
