@@ -1,3 +1,4 @@
+use futures::{Sink, Stream};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_util::{
     bytes::{self, Buf, BufMut},
@@ -220,6 +221,17 @@ impl Encoder<PeerMessage> for PeerMessageCodec {
 }
 
 pub type PeerFrames<T> = Framed<T, PeerMessageCodec>;
+pub trait PeerStream:
+    Stream<Item = Result<PeerMessage, <PeerMessageCodec as Decoder>::Error>>
+    + Sink<PeerMessage, Error = anyhow::Error>
+{
+}
+
+impl<T> PeerStream for T where
+    T: Stream<Item = Result<PeerMessage, <PeerMessageCodec as Decoder>::Error>>
+        + Sink<PeerMessage, Error = anyhow::Error>
+{
+}
 
 pub fn upgrade_stream<T>(stream: T) -> PeerFrames<T>
 where
