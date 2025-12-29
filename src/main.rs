@@ -9,32 +9,54 @@ mod tracker;
 
 use clap::Parser;
 use cli::Cli;
-use piece_picker::{PiecePicker, PiecePickerHandle};
+use piece_picker::{PiecePicker, PiecePickerPrototype};
 use prelude::*;
 
-use tokio::sync::mpsc;
 use tokio::task;
 use tokio_util::sync::CancellationToken;
-use tracing::Level;
 
 use metainfo::{url::TrackerUrl, DownloadInfo};
-use peers::download_worker::{PeerAddr, PeerDownloadWorker};
+use peers::{
+    download_worker::{connect_and_handshake, PeerDownloadWorker},
+    PeerAddr,
+};
 use torrent::{InfoHash, PeerId};
-
-use std::{net::SocketAddrV4, sync::Arc};
 
 use tracker::{
     request::{Requestable, TrackerRequest},
     Announce, HttpTracker,
 };
 
+use tracing_flame::FlameLayer;
+use tracing_subscriber::{filter, fmt, layer::SubscriberExt, registry::Registry, Layer};
+
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
-    tracing_subscriber::fmt()
-        .with_max_level(Level::DEBUG)
+    let fmt_layer = fmt::Layer::default()
         .pretty()
-        .with_target(false)
-        .init();
+        .with_filter(filter::LevelFilter::TRACE);
+
+    let (flame_layer, _flush_gaurd) =
+        FlameLayer::with_file("./tracing.folded").expect("could not initialize flame layer");
+
+    let subscriber = Registry::default().with(fmt_layer).with(flame_layer);
+
+    tracing::subscriber::set_global_default(subscriber)
+        .expect("could not set global tracing subscriber");
+
+    tokio::select! {
+        Ok(_) = tokio::signal::ctrl_c() => {Ok(())},
+        result = run_app() => {result}
+    }
+
+    // let fmt_layer = tracing_subscriber::fmt::tracing_subscriber::fmt()
+    //     .with_max_level(Level::INFO)
+    //     .pretty()
+    //     .with_target(false)
+    //     .init();
+}
+
+async fn run_app() -> anyhow::Result<()> {
     let matches = Cli::parse();
     let metainfo = metainfo::Metainfo::from_bencode_file(matches.source).await?;
 
@@ -43,6 +65,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let client = reqwest::Client::new();
     let response = match metainfo.announce {
         // TODO: handle udp trackers, BEP: https://www.bittorrent.org/beps/bep_0015.html
+        #[allow(unused)]
         TrackerUrl::Udp(udp_url) => todo!(),
         TrackerUrl::Http(http_url) => {
             HttpTracker::new(&client, http_url)
@@ -79,7 +102,6 @@ async fn main() -> Result<(), anyhow::Error> {
     let (mut piece_picker, piece_picker_handle) =
         PiecePicker::new(piece_infos, shutdown_token.clone());
 
-    let piece_picker_handle = Arc::new(piece_picker_handle);
     let mut join_set = task::JoinSet::<anyhow::Result<()>>::new();
 
     let mut abort_handles = Vec::new();
@@ -111,16 +133,12 @@ async fn main() -> Result<(), anyhow::Error> {
     skip_all
 )]
 async fn spawn_peer(
-    peer_addr: SocketAddrV4,
-    piece_picker_handle: Arc<PiecePickerHandle>,
+    peer_addr: PeerAddr,
+    piece_picker_proto: PiecePickerPrototype,
     shutdown_token: CancellationToken,
     info_hash: InfoHash,
     peer_id: PeerId,
 ) -> anyhow::Result<()> {
-    let connx = PeerAddr::new(peer_addr);
-    let mut worker =
-        PeerDownloadWorker::init_from(connx.handshake(info_hash, peer_id).await?, shutdown_token)
-            .await?;
-    worker.start_peer_event_loop(piece_picker_handle).await?;
-    Ok(())
+    let connx = connect_and_handshake(peer_addr, info_hash, peer_id).await?;
+    PeerDownloadWorker::start_from(connx, shutdown_token, piece_picker_proto).await
 }
