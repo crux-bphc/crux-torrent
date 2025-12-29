@@ -15,7 +15,7 @@ struct Requested {
 #[derive(Debug, Clone)]
 pub(super) struct PieceDownloadProgress {
     piece_length: PieceLength,
-    pending: VecDeque<Requested>,
+    pending: VecDeque<Requested>, // queue that stores the pending blocks from oldest to youngest
     block_status: Bitfield,
 }
 
@@ -39,8 +39,7 @@ impl PieceDownloadProgress {
     pub fn next_block_info(&mut self) -> Option<(BlockOffset, BlockLength)> {
         let now = Instant::now();
 
-        // if the oldest block request became stale, requeue it and return the block to be re
-        // requested.
+        // if the oldest block request became stale, requeue it and return the block to be re-requested.
         if self
             .pending
             .front()
@@ -57,7 +56,9 @@ impl PieceDownloadProgress {
             return Some(self.get_block_info(block_id));
         }
 
-        if self.reached_max_pending() {
+        let reached_max_pending = self.pending.len() as u32 >= Self::MAX_PENDING_BLOCKS;
+
+        if reached_max_pending {
             trace!("request blocks pipeline filled");
             return None;
         }
@@ -138,9 +139,5 @@ impl PieceDownloadProgress {
 
     pub fn is_done(&self) -> bool {
         self.pending.is_empty() && self.block_status.all()
-    }
-
-    fn reached_max_pending(&self) -> bool {
-        self.pending.len() as u32 >= Self::MAX_PENDING_BLOCKS
     }
 }
