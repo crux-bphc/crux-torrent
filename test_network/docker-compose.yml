@@ -1,0 +1,34 @@
+services:
+  tracker:
+    image: wiltonsr/opentracker:open
+    container_name: test_tracker
+    networks:
+      torrent_test_net:
+        ipv4_address: 172.30.0.1
+
+  peers:
+    image: linuxserver/transmission:4.0.6
+    environment:
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      # make sure to create the test.torrent file from testfile with mktorrent or similar
+      # mktorrent -a http://172.30.0.1/announce -o test.torrent testfile # in the test_network dir
+      - ./testfile:/downloads/complete/testfile # start seeding this file
+      - ./test.torrent:/watch/test.torrent
+    deploy:
+      replicas: 3
+    networks:
+      torrent_test_net:
+
+
+networks:
+  torrent_test_net:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: "br-torrent-test"
+    ipam:
+      config:
+        # to reach this subnet, run ip route add 172.20.0.0/24 dev torrent-test-net 
+        - subnet: 172.30.0.0/16
+          ip_range: 172.30.1.0/24

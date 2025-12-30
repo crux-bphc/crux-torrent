@@ -11,7 +11,8 @@ pub struct TrackerResponse {
     pub peer_addreses: Vec<SocketAddrV4>,
 }
 
-// this struct is seperate so that it  can be deserialized properly and can be converted into a Result whose Ok variant gives the successful TrackerResponse.
+// this struct is seperate so that it  can be deserialized properly
+// and ease of convertion into Result
 #[derive(Clone, Debug, Deserialize)]
 #[serde(untagged)]
 pub enum TrackerResponseResult {
